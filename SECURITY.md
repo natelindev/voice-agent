@@ -10,7 +10,7 @@ Please do not report vulnerabilities in public GitHub issues.
 
 Report privately by email to:
 
-- opensource@natelin.dev
+- me@nate-lin.com
 
 Please include:
 
