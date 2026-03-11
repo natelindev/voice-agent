@@ -1,64 +1,120 @@
 # Voice Agent
 
-A real-time voice assistant that runs in the local terminal. It listens via microphone, detects speech with Silero VAD, transcribes with OpenAI Whisper, generates responses with GPT-4o-mini, and speaks back with GPT-4o-mini TTS — all with barge-in support and sub-1.5s end-to-end latency.
+A low-latency, real-time voice assistant for the terminal.
 
-## Requirements
+It captures microphone audio, performs local VAD with Silero, transcribes with OpenAI Whisper, generates responses with GPT-4o-mini, and streams speech back with GPT-4o-mini-tts. It supports barge-in, so users can interrupt playback naturally.
+
+## Why this project
+
+- Real-time, full-duplex interaction loop designed for responsiveness
+- Practical async architecture with careful thread/async boundaries around `sounddevice`
+- Production-minded cancellation design for smooth barge-in behavior
+- Good reference implementation for voice pipeline orchestration in Python
+
+## Features
+
+- Local microphone capture and speaker playback
+- Silero VAD speech start/end detection (16 kHz, 512-sample chunks)
+- Whisper transcription (`whisper-1`)
+- Streaming chat completions (`gpt-4o-mini`)
+- Sentence-level streaming TTS (`gpt-4o-mini-tts`)
+- Cooperative cancellation and immediate playback stop on interruption
+- Multi-turn memory in the chat layer
+- CLI-first workflow with minimal setup
+
+## Architecture
+
+```text
+Mic (float32 chunks) -> VADDetector -> SPEECH_START -> barge-in cancel if playing
+                               -> SPEECH_END (int16 PCM bytes)
+                                   -> Transcriber (whisper-1) -> text
+                                       -> ChatLLM (gpt-4o-mini stream) -> sentence text
+                                           -> Synthesizer (gpt-4o-mini-tts) -> PCM stream
+                                               -> AudioPlayback (sounddevice)
+```
+
+Latency target: speech end to first playback chunk under 1.5 seconds.
+
+## Quick start
+
+### 1) Prerequisites
 
 - Python 3.11+
-- [uv](https://docs.astral.sh/uv/) package manager
-- OpenAI API key with access to `whisper-1`, `gpt-4o-mini`, `gpt-4o-mini-tts`
-- Working microphone and speakers
-- PortAudio (required by sounddevice): `brew install portaudio`
+- [uv](https://docs.astral.sh/uv/)
+- OpenAI API key with access to `whisper-1`, `gpt-4o-mini`, and `gpt-4o-mini-tts`
+- PortAudio (`sounddevice` backend)
 
-## Setup
+macOS:
 
 ```bash
-# Install PortAudio (macOS)
 brew install portaudio
+```
 
-# Copy and fill in your API key
+### 2) Configure environment
+
+```bash
 cp .env.example .env
-# Edit .env and set OPENAI_API_KEY=sk-...
+```
 
-# Install dependencies and run
+Set your key in `.env`:
+
+```bash
+OPENAI_API_KEY=sk-...
+```
+
+### 3) Run
+
+```bash
 uv run voice-agent
 ```
 
-## How It Works
+Verbose mode:
 
-1. **Microphone** captures audio in 32ms chunks (512 samples @ 16kHz)
-2. **Silero VAD** (local model) detects speech start/end in real time
-3. On speech end, the audio buffer is sent to **OpenAI Whisper** for transcription
-4. The transcript is streamed to **GPT-4o-mini**, which responds sentence by sentence
-5. Each sentence is synthesized by **GPT-4o-mini-tts** (streaming PCM) and played immediately
-6. If the user speaks during playback (**barge-in**), playback stops instantly and the new utterance is processed
-
-## Latency Target
-
-Speech end → first audio chunk playing: **< 1.5 seconds**
-
-## Project Structure
-
-```
-src/voice_agent/
-├── main.py              # Entry point
-├── audio/
-│   ├── capture.py       # Mic input (sounddevice)
-│   └── playback.py      # Speaker output, streaming + barge-in stop
-├── vad/
-│   └── detector.py      # Silero VAD wrapper
-├── asr/
-│   └── transcriber.py   # OpenAI Whisper API
-├── llm/
-│   └── chat.py          # GPT-4o-mini streaming chat
-├── tts/
-│   └── synthesizer.py   # GPT-4o-mini-tts streaming PCM
-└── pipeline/
-    └── orchestrator.py  # Main pipeline with barge-in logic
+```bash
+uv run voice-agent --verbose
 ```
 
-## Running Tests
+## Development
+
+Run tests:
 
 ```bash
 uv run pytest tests/
 ```
+
+Project layout:
+
+```text
+src/voice_agent/
+  main.py                 # CLI entry point
+  audio/capture.py        # microphone capture
+  audio/playback.py       # PCM playback and stop signaling
+  vad/detector.py         # Silero VAD integration
+  asr/transcriber.py      # Whisper API wrapper
+  llm/chat.py             # streaming GPT chat + sentence splitting
+  tts/synthesizer.py      # streaming TTS PCM generator
+  pipeline/orchestrator.py# end-to-end pipeline + barge-in control
+tests/
+  test_asr.py
+  test_vad.py
+  test_pipeline.py
+```
+
+## Roadmap
+
+- Add packaging metadata for PyPI publishing
+- Add benchmark script for latency profiling
+- Add optional local/offline ASR and TTS backends
+- Add configurable wake-word mode
+
+## Contributing
+
+Contributions are welcome. Please read `CONTRIBUTING.md` before opening a PR.
+
+## Security
+
+Please report vulnerabilities privately as described in `SECURITY.md`.
+
+## License
+
+This project is licensed under the MIT License. See `LICENSE`.
