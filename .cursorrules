@@ -1,0 +1,84 @@
+# Voice Agent — Cursor Rules
+
+## Project Summary
+
+Real-time voice assistant CLI (Python 3.12). Pipeline: mic → Silero VAD → OpenAI Whisper → GPT-4o-mini → GPT-4o-mini-tts → speaker. Supports barge-in interruption with < 1.5s end-to-end latency target.
+
+## Package Management
+
+- Use `uv` exclusively — never `pip install` or `pip run`
+- Run code with `uv run voice-agent` or `uv run pytest`
+- Add dependencies with `uv add <package>`, dev deps with `uv add --dev <package>`
+- Python minimum: 3.11 (pinned at 3.12 via `.python-version`)
+
+## Code Style
+
+- Every module starts with `from __future__ import annotations`
+- Module-level logger: `logger = logging.getLogger(__name__)`
+- Type hints everywhere; prefer `X | Y` unions over `Optional[X]` or `Union[X, Y]`
+- Dataclasses for value types (e.g., `VADEvent`)
+- No threading except at the `sounddevice` bridge boundary
+
+## Async Patterns
+
+- All I/O is `asyncio`-based; `await` all coroutines
+- The sounddevice callback bridge uses `loop.call_soon_threadsafe(queue.put_nowait, chunk)` for capture
+- Playback uses `queue.Queue` (thread-safe) + `asyncio.get_running_loop().run_in_executor` for the producer
+- Cancellation is cooperative: check `cancel_event.is_set()` between async chunks — never `Task.cancel()` without `await`ing it
+
+## Barge-in Cancellation Protocol
+
+When implementing or touching cancellation logic, follow this exact sequence:
+1. `_cancel_event.set()` — signals async generators (LLM/TTS) to stop
+2. `playback.stop()` — sets the `threading.Event`, drains pcm_queue
+3. `response_task.cancel()` + `await response_task` — cooperative asyncio cancellation
+4. `vad.reset()` — reinitializes Silero VADIterator
+5. `_cancel_event.clear()` — ready for next utterance
+
+## Audio Format Invariants
+
+Never change these without updating all dependent modules:
+
+| Stage | Format | Rate | Notes |
+|---|---|---|---|
+| Capture | float32 numpy | 16kHz | `CHUNK_SAMPLES=512` (hard requirement for Silero VAD) |
+| VAD → ASR | int16 PCM bytes | 16kHz | float32 clamped → int16 via `np.clip * 32767` |
+| ASR input | WAV container | 16kHz | Built in-memory with `wave` module |
+| TTS output | int16 PCM bytes | 24kHz | Raw PCM, LE, mono, 4096-byte chunks |
+| Playback | int16 numpy | 24kHz | 2048-sample blocks (~85ms) |
+
+## Critical Constants — Do Not Change
+
+- `CHUNK_SAMPLES = 512` — Silero VAD requires exactly 512 samples at 16kHz
+- `SAMPLE_RATE = 16000` — capture and VAD
+- `TTS_SAMPLE_RATE = 24000` — TTS output and playback
+- ASR minimum buffer: `3200 bytes` (< 0.1s is skipped)
+
+## Testing
+
+- Framework: `pytest` + `pytest-asyncio`
+- Async tests: `@pytest.mark.asyncio`
+- Mock OpenAI client with `unittest.mock.AsyncMock`
+- Do not write tests that require a real microphone, speaker, or OpenAI API key
+- Run: `uv run pytest tests/` or `uv run pytest tests/test_pipeline.py -v`
+
+## File Locations
+
+| Concern | File |
+|---|---|
+| CLI entry point | `src/voice_agent/main.py` |
+| Pipeline wiring + barge-in | `src/voice_agent/pipeline/orchestrator.py` |
+| Mic capture | `src/voice_agent/audio/capture.py` |
+| Speaker playback | `src/voice_agent/audio/playback.py` |
+| VAD | `src/voice_agent/vad/detector.py` |
+| ASR | `src/voice_agent/asr/transcriber.py` |
+| LLM chat | `src/voice_agent/llm/chat.py` |
+| TTS | `src/voice_agent/tts/synthesizer.py` |
+
+## Common Pitfalls
+
+1. Changing `CHUNK_SAMPLES` from 512 breaks Silero VAD silently
+2. Mixing up 16kHz (capture/ASR) and 24kHz (TTS/playback) formats
+3. Forgetting to `await` a cancelled task — always `await` after `.cancel()`
+4. Using `asyncio.Queue` in the sounddevice callback — it is not thread-safe; use `queue.Queue` there
+5. Adding a user message to `ChatLLM._history` without adding an assistant reply on cancellation — `ChatLLM` handles this by popping the user message in `finally`
