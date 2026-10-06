@@ -24,16 +24,30 @@ src/voice_agent/          # Main package (installed as `voice-agent` CLI)
     detector.py           # VADDetector: Silero VAD, emits VADEvent(SPEECH_START|SPEECH_END)
   asr/
     transcriber.py        # Transcriber: int16 PCM bytes → WAV → whisper-1 → text
+    local_whisper.py      # LocalWhisperTranscriber: OpenSuperWhisper model via Apple Silicon Metal
   llm/
     chat.py               # ChatLLM: multi-turn GPT-4o-mini streaming, yields complete sentences
+    codex_llm.py          # CodexLLM: calls local Codex CLI with ChatGPT subscription
   tts/
     synthesizer.py        # Synthesizer: text → gpt-4o-mini-tts PCM stream (24kHz int16 mono)
+    local_tts.py          # LocalAudioPlayback: native macOS speech (say -v Samantha) with barge-in stop
   pipeline/
     orchestrator.py       # PipelineOrchestrator: wires all stages, manages barge-in cancellation
+    local_orchestrator.py # LocalPipelineOrchestrator: 100% local Mac pipeline
+    demo.py               # DemoOrchestrator: interactive UI preview simulation
+  events/
+    hub.py                # EventHub: non-blocking pub-sub for audio RMS, state, and telemetry
+  tui/
+    dashboard.py          # TUIDashboard: live terminal UI with ASCII VU meter & chat cards
+  web/
+    server.py             # WebCompanionServer: async HTTP static server + WebSocket gateway
+    static/               # Frontend assets: index.html, styles.css, orb.js, waveform.js, app.js
 tests/
   test_asr.py             # WAV container wrapping
   test_vad.py             # VAD reset and buffer flush
   test_pipeline.py        # _split_sentences utility
+  test_events.py          # EventHub pub-sub and control dispatch
+  test_web_server.py      # WebCompanionServer static files & WebSocket
 ```
 
 ## Architecture: Pipeline Data Flow
@@ -94,8 +108,14 @@ On `SPEECH_START` during active playback:
 ## Development Commands
 
 ```bash
-# Run the voice agent
+# Run with Modern TUI Dashboard (default)
 uv run voice-agent
+
+# Run with Modern Web UI Companion (opens http://127.0.0.1:8000)
+uv run voice-agent --web
+
+# Run headless (no TUI)
+uv run voice-agent --headless
 
 # Verbose logging
 uv run voice-agent --verbose

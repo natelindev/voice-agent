@@ -64,14 +64,41 @@ OPENAI_API_KEY=sk-...
 
 ### 3) Run
 
+**Modern TUI Dashboard (Default):**
+
 ```bash
 uv run voice-agent
 ```
+Renders a live terminal interface with dynamic status pills, real-time ASCII VU meters (`[ ▂▃▅▆▇█ ]`), conversation transcript cards, and per-turn latency metrics.
 
-Verbose mode:
+**Modern Clean Web UI Companion:**
 
 ```bash
-uv run voice-agent --verbose
+uv run voice-agent --web
+```
+Launches a sleek local web interface at `http://127.0.0.1:8000` with an **animated glowing voice orb** (reacting to listening, thinking, and speaking states), a **live oscilloscope waveform canvas**, streaming conversation cards, and interactive controls (Mute, Barge-in, Clear History).
+
+**100% Local Mac Mode (No OpenAI Developer API key needed!):**
+
+```bash
+uv run voice-agent --local --web
+```
+Runs entirely on your Mac:
+- **ASR**: [OpenSuperWhisper](https://github.com/starmel/OpenSuperWhisper) (`ggml-large-v3-turbo.bin`) accelerated by Apple Silicon Metal GPU (~150ms transcription).
+- **LLM**: OpenAI Codex CLI (`codex exec`) using your existing ChatGPT Plus/Pro subscription.
+- **TTS**: macOS native Neural/Enhanced speech synthesis (`say -v Samantha`) with instant barge-in interruption.
+- **Cost**: $0, completely offline, zero API credits consumed.
+
+### Echo Protection & Headphone Modes
+
+When using Mac laptop speakers, the assistant's voice from the speakers can bleed into the microphone, creating an acoustic feedback loop. Voice Agent solves this automatically:
+- **Speaker Ducking**: Suppresses mic input to VAD while the assistant is speaking and during a 500ms room echo drain window.
+- **Echo Guard**: Discards any transcribed speech matching recent assistant responses or speaker bleed artifacts (`"Bye"`, `"Thank you"`).
+- **Manual Barge-in**: You can still interrupt instantly anytime by pressing <kbd>Space</kbd> or clicking the "Interrupt" button in the Web UI.
+
+If you are **wearing headphones** and want voice-activated barge-in:
+```bash
+uv run voice-agent --web --headphones
 ```
 
 ## Development

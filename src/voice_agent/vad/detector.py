@@ -8,10 +8,13 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING
 
 import numpy as np
-import torch
 
-if TYPE_CHECKING:
-    pass
+try:
+    import torch
+    HAS_TORCH = True
+except ImportError:
+    torch = None  # type: ignore
+    HAS_TORCH = False
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +35,7 @@ class VADEvent:
 
 
 class VADDetector:
-    """Wraps Silero VAD for streaming speech detection."""
+    """Wraps Silero VAD (or adaptive energy VAD fallback) for streaming speech detection."""
 
     def __init__(
         self,
@@ -46,25 +49,37 @@ class VADDetector:
         self._min_speech_ms = min_speech_ms
         self._sample_rate = sample_rate
 
-        logger.info("Loading Silero VAD model...")
-        self._model, self._utils = torch.hub.load(
-            repo_or_dir="snakers4/silero-vad",
-            model="silero_vad",
-            force_reload=False,
-            trust_repo=True,
-            verbose=False,
-        )
-        self._model.eval()
-        get_speech_timestamps, _, _, VADIterator, _ = self._utils
-        self._VADIterator = VADIterator
-
-        self._iterator: object = self._make_iterator()
         self._in_speech: bool = False
         self._speech_chunks: list[np.ndarray] = []
+        self._silence_chunks_count: int = 0
+        self._speech_chunks_count: int = 0
+        self._energy_threshold: float = 0.015
 
-        logger.info("Silero VAD model loaded")
+        if HAS_TORCH:
+            try:
+                logger.info("Loading Silero VAD model...")
+                self._model, self._utils = torch.hub.load(
+                    repo_or_dir="snakers4/silero-vad",
+                    model="silero_vad",
+                    force_reload=False,
+                    trust_repo=True,
+                    verbose=False,
+                )
+                self._model.eval()
+                _, _, _, VADIterator, _ = self._utils
+                self._VADIterator = VADIterator
+                self._iterator: object = self._make_iterator()
+                logger.info("Silero VAD model loaded")
+                return
+            except Exception as e:
+                logger.warning("Could not load torch silero-vad: %s; using adaptive energy VAD", e)
+
+        self._iterator = None
+        logger.info("Using native adaptive energy VAD detector")
 
     def _make_iterator(self) -> object:
+        if not HAS_TORCH or not hasattr(self, "_VADIterator"):
+            return None
         return self._VADIterator(
             self._model,
             threshold=self._threshold,
@@ -75,12 +90,15 @@ class VADDetector:
 
     def process_chunk(self, chunk: np.ndarray) -> VADEvent | None:
         """Process one audio chunk (float32, 512 samples). Returns a VADEvent or None."""
-        tensor = torch.from_numpy(chunk)
+        if self._iterator is not None and HAS_TORCH:
+            return self._process_silero(chunk)
+        return self._process_energy(chunk)
 
+    def _process_silero(self, chunk: np.ndarray) -> VADEvent | None:
+        tensor = torch.from_numpy(chunk)
         try:
             result = self._iterator(tensor, return_seconds=False)
         except Exception:
-            # VADIterator can raise on edge cases; reset and continue
             self.reset()
             return None
 
@@ -102,9 +120,42 @@ class VADDetector:
             self._speech_chunks = []
             return VADEvent(type=VADEventType.SPEECH_END, audio_buffer=audio_buffer)
 
-        # Continue accumulating during speech
         if self._in_speech:
             self._speech_chunks.append(chunk)
+
+        return None
+
+    def _process_energy(self, chunk: np.ndarray) -> VADEvent | None:
+        """Adaptive energy VAD fallback with zero PyTorch dependency."""
+        rms = float(np.sqrt(np.mean(chunk**2)))
+        chunk_ms = (len(chunk) / self._sample_rate) * 1000  # 32ms
+
+        is_voice = rms > self._energy_threshold
+
+        if is_voice:
+            self._silence_chunks_count = 0
+            self._speech_chunks_count += 1
+            self._speech_chunks.append(chunk)
+
+            if not self._in_speech and (self._speech_chunks_count * chunk_ms >= self._min_speech_ms):
+                self._in_speech = True
+                logger.debug("Energy VAD: speech start (rms=%.4f)", rms)
+                return VADEvent(type=VADEventType.SPEECH_START)
+
+        else:
+            if self._in_speech:
+                self._speech_chunks.append(chunk)
+                self._silence_chunks_count += 1
+                if self._silence_chunks_count * chunk_ms >= self._min_silence_ms:
+                    self._in_speech = False
+                    self._speech_chunks_count = 0
+                    self._silence_chunks_count = 0
+                    audio_buffer = self._flush_buffer()
+                    logger.debug("Energy VAD: speech end (%d bytes)", len(audio_buffer))
+                    self._speech_chunks = []
+                    return VADEvent(type=VADEventType.SPEECH_END, audio_buffer=audio_buffer)
+            else:
+                self._speech_chunks_count = 0
 
         return None
 
