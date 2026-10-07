@@ -1,4 +1,9 @@
-<p align="center"><img src="docs/assets/brand/wordmark.png" width="420" alt="Voice Agent"></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/wordmark-dark.png">
+    <img src="docs/assets/brand/wordmark.png" width="420" alt="Voice Agent">
+  </picture>
+</p>
 
 <p align="center">Speech, responses, and interruption in one loop.</p>
 
