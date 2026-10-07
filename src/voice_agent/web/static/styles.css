@@ -534,3 +534,6 @@ html, body {
     height: 260px;
   }
 }
+
+.brand-mark { display:block; flex-shrink:0; }
+:focus-visible { outline:2px solid var(--accent-indigo); outline-offset:4px; }

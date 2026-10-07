@@ -70,7 +70,7 @@ async def _run(
         model_display = "Codex (ChatGPT)"
         voice_display = "Samantha (Mac)"
         if not tui:
-            print("\n[✓] Running in 100% Local Mac Mode:")
+            print("\n[✓] Running with Mac speech and Codex responses:")
             print("    - ASR: OpenSuperWhisper (Apple Silicon Metal)")
             print("    - LLM: OpenAI Codex CLI (using your ChatGPT subscription)")
             print("    - TTS: macOS Native Speech (Samantha)")
@@ -79,11 +79,14 @@ async def _run(
             else:
                 print("    - Headphone Mode: Voice barge-in enabled\n")
     elif use_demo and not tui:
-        print("\n[!] OPENAI_API_KEY not configured. Running in Preview / Demo Mode.\n")
+            print("\n[✓] Preview / Demo Mode: simulated audio, conversation, and timing data.\n")
 
     # Start Web UI companion if requested
     if web:
-        web_server = WebCompanionServer(event_hub=event_hub, host="127.0.0.1", port=port)
+        web_server = WebCompanionServer(
+            event_hub=event_hub, host="127.0.0.1", port=port,
+            backend="local" if use_local else "demo" if use_demo else "api",
+        )
         await web_server.start()
         url = f"http://127.0.0.1:{port}"
         if not tui:
@@ -142,7 +145,7 @@ def main() -> None:
     parser.add_argument("--port", "-p", type=int, default=8000, help="Web companion port (default: 8000)")
     parser.add_argument("--no-open", action="store_true", help="Do not automatically open browser on --web")
     parser.add_argument("--headless", "--no-tui", dest="no_tui", action="store_true", help="Disable TUI dashboard")
-    parser.add_argument("--local", "-l", action="store_true", help="Force 100%% Local Mac mode (OpenSuperWhisper + Codex + Mac TTS)")
+    parser.add_argument("--local", "-l", action="store_true", help="Use Mac speech + Codex CLI responses (requires network and Codex authentication)")
     parser.add_argument("--demo", action="store_true", help="Run interactive demo simulation mode")
     parser.add_argument(
         "--headphones",

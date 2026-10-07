@@ -44,7 +44,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project.urls]
-Homepage = "https://github.com/natelindev/voice-agent"
+Homepage = "https://natelindev-voice-agent.pages.dev/"
+Documentation = "https://natelindev-voice-agent.pages.dev/"
 Repository = "https://github.com/natelindev/voice-agent"
 Issues = "https://github.com/natelindev/voice-agent/issues"
 

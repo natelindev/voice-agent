@@ -1,25 +1,27 @@
 name: CI
-
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.11', '3.12']
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
-          python-version: "3.12"
-
+          python-version: ${{ matrix.python }}
+      - name: Install dependencies
+        run: uv sync --locked --python "${{ matrix.python }}"
       - name: Run tests
-        run: uv run pytest tests/
+        run: uv run --locked pytest tests/ -q
+      - name: Build package
+        run: uv build
+      - name: Check CLI help
+        run: uv run --locked voice-agent --help

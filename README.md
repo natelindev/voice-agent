@@ -1,147 +1,103 @@
-# Voice Agent
+<p align="center"><img src="docs/assets/brand/wordmark.png" width="420" alt="Voice Agent"></p>
 
-A low-latency, real-time voice assistant for the terminal.
+<p align="center">Speech, responses, and interruption in one loop.</p>
 
-It captures microphone audio, performs local VAD with Silero, transcribes with OpenAI Whisper, generates responses with GPT-4o-mini, and streams speech back with GPT-4o-mini-tts. It supports barge-in, so users can interrupt playback naturally.
+[![CI](https://github.com/natelindev/voice-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/natelindev/voice-agent/actions/workflows/ci.yml)
+[Documentation](https://natelindev-voice-agent.pages.dev/) · [Contributing](CONTRIBUTING.md) · [Report a bug](https://github.com/natelindev/voice-agent/issues/new/choose)
 
-## Why this project
+Voice Agent is a Python voice assistant for your workspace. Local voice-activity detection feeds an asynchronous transcription, response, and speech pipeline. A terminal dashboard and optional browser companion show state, transcripts, audio levels, and per-turn timing.
 
-- Real-time, full-duplex interaction loop designed for responsiveness
-- Practical async architecture with careful thread/async boundaries around `sounddevice`
-- Production-minded cancellation design for smooth barge-in behavior
-- Good reference implementation for voice pipeline orchestration in Python
+![Voice Agent's running web companion in preview mode](docs/assets/screenshot.png)
 
-## Features
+*Actual application preview. Conversation, audio levels, and latency values are simulated.*
 
-- Local microphone capture and speaker playback
-- Silero VAD speech start/end detection (16 kHz, 512-sample chunks)
-- Whisper transcription (`whisper-1`)
-- Streaming chat completions (`gpt-4o-mini`)
-- Sentence-level streaming TTS (`gpt-4o-mini-tts`)
-- Cooperative cancellation and immediate playback stop on interruption
-- Multi-turn memory in the chat layer
-- CLI-first workflow with minimal setup
+## Try the interface
 
-## Architecture
+Requires **Python 3.11+** and [uv](https://docs.astral.sh/uv/). Preview needs no API key, audio device, or speech-model download.
 
-```text
-Mic (float32 chunks) -> VADDetector -> SPEECH_START -> barge-in cancel if playing
-                               -> SPEECH_END (int16 PCM bytes)
-                                   -> Transcriber (whisper-1) -> text
-                                       -> ChatLLM (gpt-4o-mini stream) -> sentence text
-                                           -> Synthesizer (gpt-4o-mini-tts) -> PCM stream
-                                               -> AudioPlayback (sounddevice)
+```sh
+git clone https://github.com/natelindev/voice-agent.git
+cd voice-agent
+uv sync --locked
+uv run voice-agent --demo --web
 ```
 
-Latency target: speech end to first playback chunk under 1.5 seconds.
+The terminal dashboard appears when stdout is a TTY. The companion opens at <http://127.0.0.1:8000>; use `--no-open` to leave browser launching to you. Audio capture/playback happen in the host Python process, rather than in the browser.
 
-## Quick start
+## Runtime modes
 
-### 1) Prerequisites
+| Mode | Recognition & speech | Responses | Requirements |
+| --- | --- | --- | --- |
+| API | Local Silero VAD; Whisper API; streamed OpenAI TTS | Streaming OpenAI chat | API key, PortAudio, microphone and speaker |
+| Mac speech + Codex | Local whisper.cpp; macOS `say` | Authenticated Codex CLI | macOS, whisper.cpp model/tools, Codex access and network |
+| Preview | Simulated turns and audio levels | Fixed sample conversation | No live services or microphone |
 
-- Python 3.11+
-- [uv](https://docs.astral.sh/uv/)
-- OpenAI API key with access to `whisper-1`, `gpt-4o-mini`, and `gpt-4o-mini-tts`
-- PortAudio (`sounddevice` backend)
+### Live API mode
 
-macOS:
+Install PortAudio for your OS and allow microphone access to your terminal. On macOS:
 
-```bash
+```sh
 brew install portaudio
-```
-
-### 2) Configure environment
-
-```bash
 cp .env.example .env
-```
-
-Set your key in `.env`:
-
-```bash
-OPENAI_API_KEY=sk-...
-```
-
-### 3) Run
-
-**Modern TUI Dashboard (Default):**
-
-```bash
-uv run voice-agent
-```
-Renders a live terminal interface with dynamic status pills, real-time ASCII VU meters (`[ ▂▃▅▆▇█ ]`), conversation transcript cards, and per-turn latency metrics.
-
-**Modern Clean Web UI Companion:**
-
-```bash
+# Edit .env and set OPENAI_API_KEY
 uv run voice-agent --web
 ```
-Launches a sleek local web interface at `http://127.0.0.1:8000` with an **animated glowing voice orb** (reacting to listening, thinking, and speaking states), a **live oscilloscope waveform canvas**, streaming conversation cards, and interactive controls (Mute, Barge-in, Clear History).
 
-**100% Local Mac Mode (No OpenAI Developer API key needed!):**
+API mode currently uses `whisper-1`, `gpt-4o-mini`, and `gpt-4o-mini-tts` with the coral voice. Utterance audio, conversation text, and synthesized response text are sent to the relevant API stages; usage is billed by the provider. Keep `.env` private.
 
-```bash
+### Mac speech + Codex
+
+```sh
 uv run voice-agent --local --web
 ```
-Runs entirely on your Mac:
-- **ASR**: [OpenSuperWhisper](https://github.com/starmel/OpenSuperWhisper) (`ggml-large-v3-turbo.bin`) accelerated by Apple Silicon Metal GPU (~150ms transcription).
-- **LLM**: OpenAI Codex CLI (`codex exec`) using your existing ChatGPT Plus/Pro subscription.
-- **TTS**: macOS native Neural/Enhanced speech synthesis (`say -v Samantha`) with instant barge-in interruption.
-- **Cost**: $0, completely offline, zero API credits consumed.
 
-### Echo Protection & Headphone Modes
+Requires an authenticated `codex` executable, macOS `say`, whisper.cpp's `whisper-server` / `whisper-cli`, and the expected OpenSuperWhisper model. See [backend setup](https://natelindev-voice-agent.pages.dev/#modes) for the exact model path and inference endpoint.
 
-When using Mac laptop speakers, the assistant's voice from the speakers can bleed into the microphone, creating an acoustic feedback loop. Voice Agent solves this automatically:
-- **Speaker Ducking**: Suppresses mic input to VAD while the assistant is speaking and during a 500ms room echo drain window.
-- **Echo Guard**: Discards any transcribed speech matching recent assistant responses or speaker bleed artifacts (`"Bye"`, `"Thank you"`).
-- **Manual Barge-in**: You can still interrupt instantly anytime by pressing <kbd>Space</kbd> or clicking the "Interrupt" button in the Web UI.
+**Speech runs locally; Codex responses use a network service.** This mode does not require an OpenAI developer API key, but it is not fully offline and remains subject to the Codex account's access and limits. Without an API key, the CLI selects this backend by default; use `--demo` explicitly for a preview.
 
-If you are **wearing headphones** and want voice-activated barge-in:
-```bash
+## Interruption and echo handling
+
+Default speaker mode suppresses microphone input during playback and a 500 ms echo-drain window, and filters recognized speaker bleed. Press **Space** or click **Interrupt** to stop a response manually. Use headphones before enabling voice-triggered interruption during playback:
+
+```sh
 uv run voice-agent --web --headphones
 ```
 
-## Development
+The web controls also offer **M / Mute** and **R / Clear**. Press **Ctrl+C** to stop the process. The companion binds to loopback and has no built-in authentication; it is intended for local use.
 
-Run tests:
-
-```bash
-uv run pytest tests/
-```
-
-Project layout:
+## Pipeline
 
 ```text
-src/voice_agent/
-  main.py                 # CLI entry point
-  audio/capture.py        # microphone capture
-  audio/playback.py       # PCM playback and stop signaling
-  vad/detector.py         # Silero VAD integration
-  asr/transcriber.py      # Whisper API wrapper
-  llm/chat.py             # streaming GPT chat + sentence splitting
-  tts/synthesizer.py      # streaming TTS PCM generator
-  pipeline/orchestrator.py# end-to-end pipeline + barge-in control
-tests/
-  test_asr.py
-  test_vad.py
-  test_pipeline.py
+Microphone → Silero VAD → utterance PCM → ASR → user text
+  → response sentences → TTS PCM → speaker playback
+
+EventHub → terminal dashboard + WebSocket companion
 ```
 
-## Roadmap
+Capture uses 16 kHz mono float32 chunks; VAD emits int16 utterance PCM. Audio threads hand work to asyncio; cancellation stops playback and cancels the active response. Real latency depends on hardware and services. Preview timings are sample data, and no production latency guarantee is established here.
 
-- Add packaging metadata for PyPI publishing
-- Add benchmark script for latency profiling
-- Add optional local/offline ASR and TTS backends
-- Add configurable wake-word mode
+## CLI
 
-## Contributing
+| Option | Behavior |
+| --- | --- |
+| `--web`, `--port` | Start companion; default port 8000 |
+| `--no-open` | Skip browser launch |
+| `--headless` / `--no-tui` | Disable dashboard |
+| `--local` | Mac speech + Codex; takes precedence over `--demo` |
+| `--demo` | Simulated preview |
+| `--headphones` | Allow mic-triggered interruption during playback |
+| `--verbose` | Debug logs, which may contain transcript text |
 
-Contributions are welcome. Please read `CONTRIBUTING.md` before opening a PR.
+## Development
 
-## Security
+```sh
+uv sync --locked
+uv run pytest tests/ -q
+uv build
+```
 
-Please report vulnerabilities privately as described in `SECURITY.md`.
+The [documentation](https://natelindev-voice-agent.pages.dev/) covers setup, audio contracts, backend behavior, controls, and troubleshooting. Tests use service mocks; live microphone-to-speaker behavior still needs verification on the target hardware. See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 
 ## License
 
-This project is licensed under the MIT License. See `LICENSE`.
+[MIT](LICENSE). [Brand assets](docs/assets/brand/README.md).

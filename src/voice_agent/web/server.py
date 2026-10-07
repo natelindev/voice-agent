@@ -103,10 +103,11 @@ class WebCompanionServer:
     Connects with EventHub to broadcast live audio meters, state, and transcripts.
     """
 
-    def __init__(self, event_hub: EventHub, host: str = "127.0.0.1", port: int = 8000) -> None:
+    def __init__(self, event_hub: EventHub, host: str = "127.0.0.1", port: int = 8000, backend: str = "api") -> None:
         self._hub = event_hub
         self.host = host
         self.port = port
+        self.backend = backend
         self._server: asyncio.Server | None = None
         self._clients: set[WebSocketConnection] = set()
         self._broadcast_task: asyncio.Task | None = None
@@ -215,6 +216,7 @@ class WebCompanionServer:
             "state": self._hub.current_state.value if hasattr(self._hub.current_state, "value") else str(self._hub.current_state),
             "message": self._hub.state_message,
             "is_muted": self._hub.is_muted,
+            "backend": self.backend,
         }
         await ws.send_text(json.dumps(initial_event))
 

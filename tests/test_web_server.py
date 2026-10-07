@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import struct
 import urllib.request
 try:
     import pytest
@@ -52,4 +54,33 @@ async def test_web_server_serves_static_assets() -> None:
         assert b"VoiceOrb" in js_content
 
     finally:
+        await server.stop()
+
+
+@pytest.mark.asyncio
+async def test_websocket_handshake_describes_preview_backend() -> None:
+    hub = EventHub()
+    server = WebCompanionServer(event_hub=hub, port=0, backend="demo")
+    await server.start()
+    port = server._server.sockets[0].getsockname()[1]
+    reader, writer = await asyncio.open_connection("127.0.0.1", port)
+    try:
+        writer.write(
+            b"GET /ws HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\n"
+            b"Connection: Upgrade\r\nSec-WebSocket-Version: 13\r\n"
+            b"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n"
+        )
+        await writer.drain()
+        headers = await reader.readuntil(b"\r\n\r\n")
+        assert b"101 Switching Protocols" in headers
+        frame = await reader.readexactly(2)
+        length = frame[1] & 0x7F
+        if length == 126:
+            length = struct.unpack("!H", await reader.readexactly(2))[0]
+        message = json.loads(await reader.readexactly(length))
+        assert message["backend"] == "demo"
+        assert message["is_muted"] is False
+    finally:
+        writer.close()
+        await writer.wait_closed()
         await server.stop()

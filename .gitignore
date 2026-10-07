@@ -11,3 +11,6 @@ build/
 .mypy_cache/
 *.log
 .DS_Store
+
+# Cloudflare local state
+.wrangler/

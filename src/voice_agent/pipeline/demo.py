@@ -35,16 +35,15 @@ class DemoOrchestrator:
             0.32, 0.18, 0.11, 1.15
         ),
         (
-            "What makes this voice agent production ready?",
-            "It combines local Silero voice activity detection with streaming Whisper transcription, "
-            "GPT-4o-mini sentence chunking, and low-latency speech synthesis. "
-            "Both the terminal dashboard and web visualizer receive real-time telemetry.",
+            "What can I see in this preview?",
+            "You can explore the terminal dashboard and web companion, follow a simulated conversation, "
+            "and try the mute and interrupt controls. The timing values in this preview are sample data.",
             0.29, 0.16, 0.09, 1.08
         ),
         (
             "Can you tell me about the architecture?",
-            "The architecture uses an asynchronous event bus that separates audio I/O threads "
-            "from the WebSocket and UI rendering layers, guaranteeing sub-second latency.",
+            "The architecture uses an asynchronous event bus to connect audio capture, speech detection, "
+            "transcription, response generation, and playback with the terminal and web interfaces.",
             0.34, 0.19, 0.12, 1.22
         ),
     ]

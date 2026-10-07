@@ -109,6 +109,21 @@
         break;
 
       case 'state_change':
+        if (event.backend) {
+          const tags = document.getElementById('backendTags');
+          const labels = event.backend === 'demo'
+            ? ['Preview mode', 'Simulated audio & timing']
+            : event.backend === 'local'
+              ? ['Mac speech', 'Codex responses']
+              : ['gpt-4o-mini', 'coral voice', 'Silero VAD'];
+          tags.replaceChildren(...labels.map(label => {
+            const tag = document.createElement('span');
+            tag.className = 'tag';
+            tag.textContent = label;
+            return tag;
+          }));
+        }
+        if (typeof event.is_muted === 'boolean') updateMuteUI(event.is_muted);
         handleStateChange(event.state, event.message);
         break;
 

@@ -39,3 +39,16 @@ async def test_stop_terminates_subprocess() -> None:
 
     assert not tts.is_playing
     proc.terminate.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_speak_records_completion_time() -> None:
+    tts = LocalAudioPlayback()
+    proc = AsyncMock()
+    proc.returncode = 0
+    with patch("asyncio.create_subprocess_exec", return_value=proc), patch(
+        "voice_agent.tts.local_tts.time.monotonic", return_value=123.0
+    ):
+        await tts.speak("Example response")
+    assert not tts.is_playing
+    assert tts.last_played_time == 123.0
