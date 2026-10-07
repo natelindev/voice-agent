@@ -2,7 +2,7 @@
 
 ## Development
 
-Use Python 3.11+ and uv. Tests and preview do not require an API key.
+Use Python 3.11+ and uv. Tests and preview do not require an API key. Tests import the audio pipeline, so install the PortAudio runtime first (`sudo apt-get install libportaudio2` on Ubuntu/Debian; `brew install portaudio` on macOS).
 
 ```sh
 uv sync --locked

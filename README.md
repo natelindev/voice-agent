@@ -13,7 +13,7 @@ Voice Agent is a Python voice assistant for your workspace. Local voice-activity
 
 ## Try the interface
 
-Requires **Python 3.11+** and [uv](https://docs.astral.sh/uv/). Preview needs no API key, audio device, or speech-model download.
+Requires **Python 3.11+** and [uv](https://docs.astral.sh/uv/). Preview needs no API key, audio device, or speech-model download. Tests and live audio imports need PortAudio: on Ubuntu/Debian install `libportaudio2` with your package manager; on macOS use `brew install portaudio`.
 
 ```sh
 git clone https://github.com/natelindev/voice-agent.git
