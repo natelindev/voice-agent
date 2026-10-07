@@ -11,6 +11,8 @@ jobs:
     strategy:
       matrix:
         python: ['3.11', '3.12']
+    env:
+      UV_PYTHON: ${{ matrix.python }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
       - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9
