@@ -1,0 +1,49 @@
+# Voice Agent
+
+> Full-duplex conversational voice agent loop with speech recognition, LLM generation, TTS synthesis, and barge-in interruption.
+
+## Overview
+
+Voice Agent is a lightweight Python voice interaction pipeline. It connects audio capture, voice activity detection (VAD), speech-to-text (ASR), streaming text completion, text-to-speech (TTS), and local speaker playback into a single interruptible feedback loop.
+
+- **Website**: https://voice-agent-544.pages.dev/
+- **Chinese Documentation**: https://voice-agent-544.pages.dev/zh/
+- **Repository**: https://github.com/natelindev/voice-agent
+- **License**: MIT
+- **Requirements**: Python 3.11+, `uv`, PortAudio (`libportaudio2` on Linux, `brew install portaudio` on macOS)
+
+## Architecture
+
+1. **Capture & VAD**: 16 kHz mono float32 input in 512-sample chunks; silero/energy VAD detects speech boundaries.
+2. **Transcription (ASR)**: OpenAI `whisper-1` (cloud) or local `whisper.cpp` inference server.
+3. **Generation**: Streaming `gpt-4o-mini` with low-latency sentence token splitting.
+4. **Synthesis (TTS)**: OpenAI `gpt-4o-mini-tts` or native macOS `say` voice synthesis.
+5. **Barge-in / Interruption**: Cancellation signaling cuts playback cooperatively when user begins speaking.
+6. **Interfaces**: Rich terminal dashboard (TUI) plus local WebSocket web companion.
+
+## Quickstart
+
+```bash
+# Clone and install dependencies
+git clone https://github.com/natelindev/voice-agent.git
+cd voice-agent
+uv sync --locked
+
+# Preview / Simulated demo (no microphone or API key required)
+uv run voice-agent --demo --web --no-open
+
+# Live mode with OpenAI credentials
+export OPENAI_API_KEY="your-api-key"
+uv run voice-agent --web
+```
+
+## CLI Reference
+
+- `--web / -w`: Start local HTTP & WebSocket companion (default port 8000).
+- `--port / -p`: Companion port.
+- `--no-open`: Start companion without automatically launching browser.
+- `--headless / --no-tui`: Run without terminal UI.
+- `--local / -l`: Select local macOS speech (`say`) + Codex backend.
+- `--demo`: Simulated preview mode.
+- `--headphones`: Enable voice interruption during assistant playback.
+- `--verbose / -v`: Enable debug logs.
