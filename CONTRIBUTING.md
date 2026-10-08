@@ -19,7 +19,7 @@ Capture the running `--demo --web` companion and label the image as preview. Nev
 
 ## Documentation site
 
-The public site is https://natelindev-voice-agent.pages.dev/. Its Cloudflare Pages project is `natelindev-voice-agent`. Current deployments use manual Direct Upload; automatic Cloudflare deployments are not configured.
+The public site is https://voice-agent-544.pages.dev/. Its Cloudflare Pages project is `voice-agent`. Current deployments use manual Direct Upload; automatic Cloudflare deployments are not configured.
 
 Edit `docs/` and check desktop/mobile layouts, navigation, code copying, images, and light/dark appearance. The static HTML remains readable without JavaScript. Preview with `python3 -m http.server 8000 --directory docs`.
 
@@ -28,7 +28,7 @@ To publish, authenticate Wrangler to the account owning the project with Pages w
 ```sh
 npx --yes wrangler@4.148.0 login
 export CLOUDFLARE_ACCOUNT_ID=03ceea7ffa07af3f2b87471413fe6b18
-npx --yes wrangler@4.148.0 pages deploy docs --project-name natelindev-voice-agent --branch main
+npx --yes wrangler@4.148.0 pages deploy docs --project-name voice-agent --branch main
 ```
 
 Alternatively, upload a ZIP of the contents of `docs/` in the project dashboard, with `index.html` at the archive root. The included `deploy-docs.yml` workflow can publish using repository secrets `CLOUDFLARE_API_TOKEN` (Account → Cloudflare Pages → Edit) and `CLOUDFLARE_ACCOUNT_ID`. These secrets are not currently configured. See [Cloudflare’s direct-upload CI guide](https://developers.cloudflare.com/pages/how-to/use-direct-upload-with-continuous-integration/).

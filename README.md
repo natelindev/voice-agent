@@ -8,7 +8,7 @@
 <p align="center">Speech, responses, and interruption in one loop.</p>
 
 [![CI](https://github.com/natelindev/voice-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/natelindev/voice-agent/actions/workflows/ci.yml)
-[Documentation](https://natelindev-voice-agent.pages.dev/) · [Contributing](CONTRIBUTING.md) · [Report a bug](https://github.com/natelindev/voice-agent/issues/new/choose)
+[Documentation](https://voice-agent-544.pages.dev/) · [Contributing](CONTRIBUTING.md) · [Report a bug](https://github.com/natelindev/voice-agent/issues/new/choose)
 
 Voice Agent is a Python voice assistant for your workspace. Local voice-activity detection feeds an asynchronous transcription, response, and speech pipeline. A terminal dashboard and optional browser companion show state, transcripts, audio levels, and per-turn timing.
 
@@ -56,7 +56,7 @@ API mode currently uses `whisper-1`, `gpt-4o-mini`, and `gpt-4o-mini-tts` with t
 uv run voice-agent --local --web
 ```
 
-Requires an authenticated `codex` executable, macOS `say`, whisper.cpp's `whisper-server` / `whisper-cli`, and the expected OpenSuperWhisper model. See [backend setup](https://natelindev-voice-agent.pages.dev/#modes) for the exact model path and inference endpoint.
+Requires an authenticated `codex` executable, macOS `say`, whisper.cpp's `whisper-server` / `whisper-cli`, and the expected OpenSuperWhisper model. See [backend setup](https://voice-agent-544.pages.dev/#modes) for the exact model path and inference endpoint.
 
 **Speech runs locally; Codex responses use a network service.** This mode does not require an OpenAI developer API key, but it is not fully offline and remains subject to the Codex account's access and limits. Without an API key, the CLI selects this backend by default; use `--demo` explicitly for a preview.
 
@@ -101,7 +101,7 @@ uv run pytest tests/ -q
 uv build
 ```
 
-The [documentation](https://natelindev-voice-agent.pages.dev/) covers setup, audio contracts, backend behavior, controls, and troubleshooting. Tests use service mocks; live microphone-to-speaker behavior still needs verification on the target hardware. See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+The [documentation](https://voice-agent-544.pages.dev/) covers setup, audio contracts, backend behavior, controls, and troubleshooting. Tests use service mocks; live microphone-to-speaker behavior still needs verification on the target hardware. See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 
 ## License
 
