@@ -129,6 +129,8 @@ strong {
 	font-size: 19px;
 	font-weight: 650;
 	letter-spacing: -0.6px;
+	white-space: nowrap;
+	flex-shrink: 0;
 }
 .brand-icon {
 	display: block;
@@ -753,7 +755,21 @@ footer a {
 .status-dot { background:var(--accent); }
 kbd { background:var(--code); box-shadow:none; }
 .theme-toggle { border:0; background:var(--code); color:var(--ink); border-radius:5px; padding:5px 10px; font-size:12px; }
-[data-theme="dark"] .brand-icon { content:url("assets/brand/mark-dark.svg"); }
+.header-actions > * { white-space:nowrap; flex-shrink:0; }
+.language-switch { color:var(--ink); font-size:12px; white-space:nowrap; text-decoration:none; border-radius:5px; padding:5px 8px; }
+.language-switch:hover { background:var(--code); }
+html[lang="zh-CN"] h1, html[lang="zh-CN"] h2 { letter-spacing:-.03em; }
+html[lang="zh-CN"] .eyebrow, html[lang="zh-CN"] .section-kicker { letter-spacing:.08em; }
+
 [data-theme="dark"] .button-primary { color:var(--paper); }
 .button-primary:hover { background:var(--accent); }
 @media(max-width:760px) { .header { padding:0 16px; } .header-actions { gap:10px; } .brand { font-size:15px; gap:7px; } .brand-icon { width:28px; height:28px; } }
+@media(max-width:600px) { .header .github-link { display:none; } .header-actions { gap:7px; } }
+@media(max-width:360px) {
+  .header { padding:0 12px; }
+  .brand { font-size:14px; gap:6px; }
+  .brand-icon { width:26px; height:26px; }
+  .header-actions { gap:4px; }
+  .language-switch { padding:5px 6px; }
+  .menu-toggle { font-size:12px; padding:5px 8px; }
+}

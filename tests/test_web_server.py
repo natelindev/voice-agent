@@ -48,10 +48,20 @@ async def test_web_server_serves_static_assets() -> None:
         assert status == 200
         assert b"--bg-primary" in css_content
 
-        # Fetch orb.js
-        status, js_content = await loop.run_in_executor(None, fetch, "/orb.js")
+        # Fetch the particle visualizer loaded by the companion.
+        status, js_content = await loop.run_in_executor(None, fetch, "/particles.js")
         assert status == 200
-        assert b"VoiceOrb" in js_content
+        assert b"VoiceParticles" in js_content
+
+        status, locale_content = await loop.run_in_executor(None, fetch, "/i18n.js")
+        assert status == 200
+        assert b"VoiceI18n" in locale_content
+
+        # PNG identity assets referenced by the page must ship with the server.
+        for path in ("/logo-v4.png", "/favicon-v4.png"):
+            status, image_content = await loop.run_in_executor(None, fetch, path)
+            assert status == 200
+            assert image_content.startswith(b"\x89PNG\r\n\x1a\n")
 
     finally:
         await server.stop()

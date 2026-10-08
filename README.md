@@ -1,20 +1,31 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/wordmark-dark.png">
-    <img src="docs/assets/brand/wordmark.png" width="420" alt="Voice Agent">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/wordmark-dark-v4.png">
+    <img src="docs/assets/brand/wordmark-v4.png" width="420" alt="Voice Agent">
   </picture>
 </p>
 
 <p align="center">Speech, responses, and interruption in one loop.</p>
 
 [![CI](https://github.com/natelindev/voice-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/natelindev/voice-agent/actions/workflows/ci.yml)
-[Documentation](https://voice-agent-544.pages.dev/) · [Contributing](CONTRIBUTING.md) · [Report a bug](https://github.com/natelindev/voice-agent/issues/new/choose)
+[Documentation](https://voice-agent-544.pages.dev/) · [中文文档](https://voice-agent-544.pages.dev/zh/) · [Contributing](CONTRIBUTING.md) · [Report a bug](https://github.com/natelindev/voice-agent/issues/new/choose)
 
 Voice Agent is a Python voice assistant for your workspace. Local voice-activity detection feeds an asynchronous transcription, response, and speech pipeline. A terminal dashboard and optional browser companion show state, transcripts, audio levels, and per-turn timing.
 
-![Voice Agent's running web companion in preview mode](docs/assets/screenshot.png)
+![Voice Agent with a particle visualizer and live conversation in preview mode](docs/assets/screenshot.png)
 
-*Actual application preview. Conversation, audio levels, and latency values are simulated.*
+*Application preview with the new speech-and-audio logo and particle interface. Conversation, audio levels, and latency values are simulated.*
+
+The website and browser companion support **English and Simplified Chinese**. They follow your browser language on first visit and remember your selection. Switch languages in the header; conversation content stays as spoken.
+
+<details>
+  <summary>简体中文界面 / Chinese interface</summary>
+
+![Voice Agent 简体中文界面，采用新标志和粒子动画](docs/assets/screenshot-zh.png)
+
+*中文界面预览。对话、音量和耗时均为模拟数据；切换界面语言不会翻译对话内容。*
+
+</details>
 
 ## Try the interface
 

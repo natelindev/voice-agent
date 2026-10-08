@@ -25,6 +25,8 @@ jobs:
         run: uv sync --locked --python "${{ matrix.python }}"
       - name: Run tests
         run: uv run --locked pytest tests/ -q
+      - name: Check web companion behavior
+        run: node --test tests/test_*.cjs
       - name: Build package
         run: uv build
       - name: Check CLI help

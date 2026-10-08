@@ -8,6 +8,9 @@
 
   // DOM Elements
   const connectionDot = document.getElementById('connectionDot');
+  const connectionLabel = document.getElementById('connectionLabel');
+  const app = document.querySelector('.app-container');
+  const steps = document.querySelectorAll('[data-step]');
   const statusPill = document.getElementById('statusPill');
   const statusText = document.getElementById('statusText');
   const stateHeadline = document.getElementById('stateHeadline');
@@ -17,6 +20,8 @@
   const turnCount = document.getElementById('turnCount');
   const meterFill = document.getElementById('meterFill');
   const meterValue = document.getElementById('meterValue');
+  const inputMeter = document.getElementById('inputMeter');
+  const meterLabel = document.getElementById('meterLabel');
   const muteBtn = document.getElementById('muteBtn');
   const muteLabel = document.getElementById('muteLabel');
   const interruptBtn = document.getElementById('interruptBtn');
@@ -24,7 +29,7 @@
   const latencyDisplay = document.getElementById('latencyDisplay');
 
   // Visualizers
-  const orb = new VoiceOrb('orbCanvas');
+  const particles = new VoiceParticles('particleCanvas');
   const waveform = new AudioWaveform('waveformCanvas');
 
   // State
@@ -33,38 +38,36 @@
   let totalTurns = 0;
   let activeAssistantCard = null;
   let reconnectAttempts = 0;
+  let currentState = 'idle';
+  let currentMessage = '';
+  let backend = 'api';
 
-  // Friendly state titles and descriptions
-  const stateDescriptions = {
-    listening: {
-      headline: 'Listening...',
-      subtext: 'Speak into your microphone naturally. Barge-in is active.'
-    },
-    speech_detected: {
-      headline: 'Listening...',
-      subtext: 'Speech detected. Processing audio input...'
-    },
-    transcribing: {
-      headline: 'Transcribing...',
-      subtext: 'Converting speech to text via Whisper API...'
-    },
-    thinking: {
-      headline: 'Thinking...',
-      subtext: 'Generating streaming response with GPT-4o-mini...'
-    },
-    speaking: {
-      headline: 'Speaking...',
-      subtext: 'Streaming natural voice playback via TTS. Speak to interrupt.'
-    },
-    interrupted: {
-      headline: 'Interrupted',
-      subtext: 'Barge-in triggered. Playback cancelled, listening to you.'
-    },
-    idle: {
-      headline: 'Ready',
-      subtext: 'Microphone is active.'
-    }
-  };
+  const i18n = window.VoiceI18n;
+  const t = (key, values) => i18n.t(key, values);
+  const states = ['idle', 'listening', 'speech_detected', 'transcribing', 'thinking', 'speaking', 'interrupted'];
+  let connectionPhase = 'connecting';
+  let lastLatency = null;
+
+  function formatTime(date) {
+    return date.toLocaleTimeString(i18n.language === 'zh' ? 'zh-CN' : 'en-US',
+      { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  function renderTurnCount() {
+    turnCount.textContent = t(totalTurns === 1 ? 'turn.one' : 'turn.many', { count: totalTurns });
+  }
+
+  function renderBackend() {
+    const labels = backend === 'demo'
+      ? [t('backend.preview'), t('backend.simulated')]
+      : backend === 'local' ? [t('backend.local'), 'Codex'] : [t('backend.api'), 'Coral'];
+    document.getElementById('backendTags').replaceChildren(...labels.map(label => {
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = label;
+      return tag;
+    }));
+  }
 
   // --- WebSocket Connection ---
   function connectWebSocket() {
@@ -76,7 +79,11 @@
     ws.onopen = () => {
       reconnectAttempts = 0;
       connectionDot.classList.remove('disconnected');
-      statusText.textContent = 'Connected';
+      connectionPhase = 'connected';
+      connectionLabel.textContent = t('connection.connected');
+      muteBtn.disabled = false;
+      interruptBtn.disabled = false;
+      renderState();
     };
 
     ws.onmessage = (event) => {
@@ -90,7 +97,16 @@
 
     ws.onclose = () => {
       connectionDot.classList.add('disconnected');
-      statusText.textContent = 'Reconnecting...';
+      connectionPhase = 'offline';
+      connectionLabel.textContent = t('connection.offline');
+      muteBtn.disabled = true;
+      interruptBtn.disabled = true;
+      app.dataset.state = 'idle';
+      statusPill.dataset.state = 'idle';
+      renderState();
+      particles.setState('idle');
+      handleAudioLevel(0);
+      steps.forEach(step => step.removeAttribute('aria-current'));
       const delay = Math.min(1000 * Math.pow(1.5, reconnectAttempts++), 5000);
       setTimeout(connectWebSocket, delay);
     };
@@ -110,18 +126,8 @@
 
       case 'state_change':
         if (event.backend) {
-          const tags = document.getElementById('backendTags');
-          const labels = event.backend === 'demo'
-            ? ['Preview mode', 'Simulated audio & timing']
-            : event.backend === 'local'
-              ? ['Mac speech', 'Codex responses']
-              : ['gpt-4o-mini', 'coral voice', 'Silero VAD'];
-          tags.replaceChildren(...labels.map(label => {
-            const tag = document.createElement('span');
-            tag.className = 'tag';
-            tag.textContent = label;
-            return tag;
-          }));
+          backend = event.backend;
+          renderBackend();
         }
         if (typeof event.is_muted === 'boolean') updateMuteUI(event.is_muted);
         handleStateChange(event.state, event.message);
@@ -151,23 +157,61 @@
 
   // --- Audio Level ---
   function handleAudioLevel(level, peak) {
-    orb.setAudioLevel(level);
+    level = Number.isFinite(level) ? Math.max(0, Math.min(1, level)) : 0;
+    particles.setAudioLevel(level);
     waveform.setAudioLevel(level);
 
     const pct = Math.round(level * 100);
     meterFill.style.width = `${pct}%`;
     meterValue.textContent = `${pct}%`;
+    inputMeter.setAttribute('aria-valuenow', pct);
   }
 
   // --- State Changes ---
   function handleStateChange(state, customMessage) {
-    orb.setState(state);
+    currentState = state;
+    currentMessage = customMessage || '';
+    particles.setState(state);
     statusPill.setAttribute('data-state', state);
+    app.dataset.state = state;
 
-    const desc = stateDescriptions[state] || stateDescriptions.idle;
-    stateHeadline.textContent = desc.headline;
-    stateSubtext.textContent = customMessage || desc.subtext;
-    statusText.textContent = state.toUpperCase();
+    const activeStep = {
+      listening: 'listen', speech_detected: 'listen',
+      transcribing: 'understand', thinking: 'think', speaking: 'speak',
+    }[state];
+    steps.forEach(step => {
+      if (step.dataset.step === activeStep) step.setAttribute('aria-current', 'step');
+      else step.removeAttribute('aria-current');
+    });
+    renderState();
+  }
+
+  function renderState() {
+    const state = currentState;
+    if (connectionPhase !== 'connected') {
+      const prefix = connectionPhase === 'offline' ? 'offline' : 'initial';
+      stateHeadline.textContent = t(`${prefix}.headline`);
+      stateSubtext.textContent = t(`${prefix}.subtext`);
+      statusText.textContent = t(connectionPhase === 'offline' ? 'status.reconnecting' : 'connection.connecting');
+      return;
+    }
+    const safeState = states.includes(state) ? state : 'idle';
+    const micOff = isMuted && ['idle', 'listening', 'speech_detected'].includes(state);
+    if (micOff) {
+      stateHeadline.textContent = t('muted.headline');
+      stateSubtext.textContent = t('muted.subtext');
+      statusText.textContent = t('status.muted');
+      return;
+    }
+    stateHeadline.textContent = t(`state.${safeState}.headline`);
+    // Keep actionable server errors visible; routine pipeline detail stays in logs.
+    const isError = /\b(error|failed|unavailable|unable|denied|timed out)\b/i.test(currentMessage);
+    stateSubtext.textContent = isError ? currentMessage : t(`state.${safeState}.subtext`);
+    if (backend === 'demo' && !isError) {
+      stateSubtext.textContent = state === 'listening' || state === 'idle'
+        ? t('preview.subtext') : t(`state.${safeState}.subtext`);
+    }
+    statusText.textContent = t(`status.${safeState}`);
   }
 
   // --- Transcripts & Chat Feed ---
@@ -178,22 +222,23 @@
       emptyState.style.display = 'none';
     }
 
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const timestamp = new Date();
+    const timeStr = formatTime(timestamp);
 
     if (role === 'user') {
       const card = document.createElement('div');
       card.className = 'chat-card user';
       card.innerHTML = `
         <div class="card-header">
-          <span class="card-role">You</span>
-          <span class="card-time">${timeStr}</span>
+          <span class="card-role" data-i18n="role.user">${t('role.user')}</span>
+          <span class="card-time" data-time="${timestamp.toISOString()}">${timeStr}</span>
         </div>
         <div class="card-body">${escapeHtml(text)}</div>
       `;
       chatFeed.appendChild(card);
       activeAssistantCard = null;
       totalTurns++;
-      turnCount.textContent = `${totalTurns} turn${totalTurns === 1 ? '' : 's'}`;
+      renderTurnCount();
     } else if (role === 'assistant') {
       if (activeAssistantCard) {
         activeAssistantCard.querySelector('.card-body').textContent = text;
@@ -202,8 +247,8 @@
         card.className = 'chat-card assistant';
         card.innerHTML = `
           <div class="card-header">
-            <span class="card-role">Agent</span>
-            <span class="card-time">${timeStr}</span>
+            <span class="card-role" data-i18n="role.assistant">${t('role.assistant')}</span>
+            <span class="card-time" data-time="${timestamp.toISOString()}">${timeStr}</span>
           </div>
           <div class="card-body">${escapeHtml(text)}</div>
           <div class="card-footer"></div>
@@ -221,15 +266,16 @@
       emptyState.style.display = 'none';
     }
 
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const timestamp = new Date();
+    const timeStr = formatTime(timestamp);
 
     if (!activeAssistantCard) {
       const card = document.createElement('div');
       card.className = 'chat-card assistant';
       card.innerHTML = `
         <div class="card-header">
-          <span class="card-role">Agent</span>
-          <span class="card-time">${timeStr}</span>
+          <span class="card-role" data-i18n="role.assistant">${t('role.assistant')}</span>
+          <span class="card-time" data-time="${timestamp.toISOString()}">${timeStr}</span>
         </div>
         <div class="card-body">${escapeHtml(delta)}</div>
         <div class="card-footer"></div>
@@ -245,17 +291,14 @@
   }
 
   function handleTurnMetrics(metrics) {
-    const totalMs = Math.round(metrics.total_seconds * 1000);
-    const asrMs = Math.round(metrics.asr_seconds * 1000);
-    const ttftMs = Math.round(metrics.ttft_seconds * 1000);
-
-    const badgeText = `ASR: ${asrMs}ms · TTFT: ${ttftMs}ms · Total: ${metrics.total_seconds.toFixed(2)}s`;
-    latencyDisplay.textContent = `${metrics.total_seconds.toFixed(2)}s`;
+    lastLatency = metrics.total_seconds;
+    const badgeText = formatLatencyBadge(lastLatency);
+    latencyDisplay.textContent = t('latency.value', { seconds: lastLatency.toFixed(2) });
 
     if (activeAssistantCard) {
       const footer = activeAssistantCard.querySelector('.card-footer');
       if (footer) {
-        footer.innerHTML = `<span class="metrics-badge">${badgeText}</span>`;
+        footer.innerHTML = `<span class="metrics-badge" data-seconds="${lastLatency}">${badgeText}</span>`;
       }
     }
     activeAssistantCard = null;
@@ -279,6 +322,7 @@
   }
 
   function toggleMute() {
+    if (muteBtn.disabled) return;
     isMuted = !isMuted;
     sendCommand(isMuted ? 'mute' : 'unmute');
     updateMuteUI(isMuted);
@@ -286,12 +330,13 @@
 
   function updateMuteUI(muted) {
     isMuted = muted;
-    muteLabel.textContent = isMuted ? 'Unmute' : 'Mute';
-    if (isMuted) {
-      muteBtn.style.backgroundColor = 'rgba(244, 63, 94, 0.2)';
-    } else {
-      muteBtn.style.backgroundColor = '';
-    }
+    muteLabel.textContent = t(isMuted ? 'unmute.label' : 'mute.label');
+    muteBtn.setAttribute('aria-pressed', String(isMuted));
+    muteBtn.setAttribute('aria-label', t(isMuted ? 'unmute.aria' : 'mute.aria'));
+    app.dataset.muted = String(isMuted);
+    meterLabel.textContent = t(isMuted ? 'mic.muted' : 'mic.label');
+    if (isMuted) handleAudioLevel(0);
+    renderState();
   }
 
   function interruptPlayback() {
@@ -300,15 +345,12 @@
 
   function clearHistory() {
     sendCommand('clear_history');
-    chatFeed.innerHTML = `
-      <div class="empty-state" id="emptyState">
-        <div class="empty-icon">🎙️</div>
-        <p>Your conversation history will appear here in real time.</p>
-      </div>
-    `;
+    emptyState.style.display = '';
+    chatFeed.replaceChildren(emptyState);
     totalTurns = 0;
-    turnCount.textContent = '0 turns';
+    renderTurnCount();
     activeAssistantCard = null;
+    lastLatency = null;
     latencyDisplay.textContent = '—';
   }
 
@@ -319,7 +361,8 @@
 
   // Global Keyboard Shortcuts
   window.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.repeat || e.metaKey || e.ctrlKey || e.altKey ||
+        e.target.closest('input, textarea, select, button, a, [contenteditable="true"]')) return;
 
     if (e.key === ' ' || e.code === 'Space') {
       e.preventDefault();
@@ -331,6 +374,26 @@
     }
   });
 
+  function formatLatencyBadge(seconds) {
+    return `${t(backend === 'demo' ? 'response.demo' : 'response.normal')} · ${t('latency.value', { seconds: seconds.toFixed(2) })}`;
+  }
+
+  function renderLanguage() {
+    connectionLabel.textContent = t(`connection.${connectionPhase === 'offline' ? 'offline' : connectionPhase}`);
+    renderBackend();
+    renderTurnCount();
+    updateMuteUI(isMuted);
+    latencyDisplay.textContent = lastLatency === null ? '—' : t('latency.value', { seconds: lastLatency.toFixed(2) });
+    document.querySelectorAll('.card-time[data-time]').forEach(element => {
+      element.textContent = formatTime(new Date(element.dataset.time));
+    });
+    document.querySelectorAll('.metrics-badge[data-seconds]').forEach(element => {
+      element.textContent = formatLatencyBadge(Number(element.dataset.seconds));
+    });
+  }
+  window.addEventListener('languagechange', renderLanguage);
+
   // Initialize
+  renderLanguage();
   connectWebSocket();
 })();

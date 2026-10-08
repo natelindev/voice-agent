@@ -1,4 +1,23 @@
 /* Progressive enhancements: all documentation is readable without JavaScript. */
+const isChinese = document.documentElement.lang.startsWith('zh');
+const languageLink = document.querySelector('.language-switch');
+let savedLanguage = null;
+try { savedLanguage = localStorage.getItem('voice-agent-language'); } catch {}
+if (!['en', 'zh'].includes(savedLanguage)) savedLanguage = null;
+const explicitLanguage = new URLSearchParams(location.search).get('lang');
+if (!isChinese && explicitLanguage !== 'en' &&
+    (savedLanguage === 'zh' || (!savedLanguage && navigator.language.toLowerCase().startsWith('zh')))) {
+  location.replace(new URL(`zh/${location.hash}`, location.href));
+} else {
+  try { localStorage.setItem('voice-agent-language', isChinese ? 'zh' : 'en'); } catch {}
+}
+languageLink.addEventListener('click', () => {
+  try { localStorage.setItem('voice-agent-language', languageLink.dataset.language); } catch {}
+  const target = new URL(languageLink.getAttribute('href'), location.href);
+  target.hash = location.hash;
+  languageLink.href = target.href;
+});
+const text = (english, chinese) => isChinese ? chinese : english;
 document.documentElement.classList.add("js");
 
 const menu = document.querySelector(".menu-toggle");
@@ -65,25 +84,24 @@ document.querySelectorAll(".code-block").forEach((block, index) => {
 	const button = document.createElement("button");
 	button.type = "button";
 	button.className = "copy-button";
-	button.textContent = "Copy";
-	button.setAttribute("aria-label", `Copy code example ${index + 1}`);
+	button.textContent = text("Copy", "复制");
+	button.setAttribute("aria-label", text(`Copy code example ${index + 1}`, `复制代码示例 ${index + 1}`));
 	button.addEventListener("click", async () => {
 		try {
 			await navigator.clipboard.writeText(code.textContent);
-			button.textContent = "Copied";
-			status.textContent = `Code example ${index + 1} copied to clipboard.`;
+			button.textContent = text("Copied", "已复制");
+			status.textContent = text(`Code example ${index + 1} copied to clipboard.`, `代码示例 ${index + 1} 已复制到剪贴板。`);
 		} catch {
 			const range = document.createRange();
 			range.selectNodeContents(code);
 			const selection = window.getSelection();
 			selection.removeAllRanges();
 			selection.addRange(range);
-			button.textContent = "Selected";
-			status.textContent =
-				"Clipboard unavailable. Code selected; use your copy shortcut.";
+			button.textContent = text("Selected", "已选中");
+			status.textContent = text("Clipboard unavailable. Code selected; use your copy shortcut.", "无法访问剪贴板。代码已选中，请使用复制快捷键。");
 		}
 		window.setTimeout(() => {
-			button.textContent = "Copy";
+			button.textContent = text("Copy", "复制");
 		}, 2000);
 	});
 	block.append(button);
@@ -92,8 +110,8 @@ document.querySelectorAll(".code-block").forEach((block, index) => {
 const themeToggle = document.querySelector(".theme-toggle");
 function setTheme(theme) {
   document.documentElement.dataset.theme = theme;
-  themeToggle.setAttribute("aria-label", `Switch to ${theme === "dark" ? "light" : "dark"} theme`);
-  themeToggle.textContent = theme === "dark" ? "Light" : "Dark";
+  themeToggle.setAttribute("aria-label", text(`Switch to ${theme === "dark" ? "light" : "dark"} theme`, `切换为${theme === "dark" ? "浅色" : "深色"}主题`));
+  themeToggle.textContent = theme === "dark" ? text("Light", "浅色") : text("Dark", "深色");
 }
 try { setTheme(localStorage.getItem("docs-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")); } catch { setTheme("light"); }
 themeToggle.addEventListener("click", () => {

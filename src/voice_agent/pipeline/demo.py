@@ -133,7 +133,7 @@ class DemoOrchestrator:
             self._hub.remove_control_handler(self._handle_control)
 
     async def _ambient_audio_loop(self) -> None:
-        """Simulate organic audio level fluctuations for the orb and waveform."""
+        """Simulate organic audio level fluctuations for the particles and waveform."""
         t = 0.0
         try:
             while self._is_running:

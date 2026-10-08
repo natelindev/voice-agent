@@ -41,7 +41,7 @@ src/voice_agent/          # Main package (installed as `voice-agent` CLI)
     dashboard.py          # TUIDashboard: live terminal UI with ASCII VU meter & chat cards
   web/
     server.py             # WebCompanionServer: async HTTP static server + WebSocket gateway
-    static/               # Frontend assets: index.html, styles.css, orb.js, waveform.js, app.js
+    static/               # Frontend assets: index.html, styles.css, particles.js, waveform.js, app.js
 tests/
   test_asr.py             # WAV container wrapping
   test_vad.py             # VAD reset and buffer flush
